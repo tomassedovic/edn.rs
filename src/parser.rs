@@ -3,7 +3,7 @@ use std::str::CharIndices;
 
 use ordered_float::OrderedFloat;
 
-use Value;
+use crate::Value;
 
 pub struct Parser<'a> {
     str: &'a str,
@@ -20,7 +20,7 @@ pub struct Error {
 impl<'a> Parser<'a> {
     pub fn new(str: &'a str) -> Parser<'a> {
         Parser {
-            str: str,
+            str,
             chars: str.char_indices(),
         }
     }
@@ -29,11 +29,11 @@ impl<'a> Parser<'a> {
         self.whitespace();
 
         self.chars.clone().next().map(|(pos, ch)| match (pos, ch) {
-            (start, '0'...'9') => {
-                let end = self.advance_while(|ch| ch.is_digit(10));
+            (start, '0'..='9') => {
+                let end = self.advance_while(|ch| ch.is_ascii_digit());
                 if self.peek() == Some('.') {
                     self.chars.next();
-                    let end = self.advance_while(|ch| ch.is_digit(10));
+                    let end = self.advance_while(|ch| ch.is_ascii_digit());
                     Ok(Value::Float(OrderedFloat(
                         self.str[start..end].parse().unwrap(),
                     )))
@@ -44,12 +44,12 @@ impl<'a> Parser<'a> {
             (start, ch @ '+') | (start, ch @ '-') => {
                 self.chars.next();
                 match self.peek() {
-                    Some('0'...'9') => {
+                    Some('0'..='9') => {
                         let start = if ch == '+' { start + 1 } else { start };
-                        let end = self.advance_while(|ch| ch.is_digit(10));
+                        let end = self.advance_while(|ch| ch.is_ascii_digit());
                         if self.peek() == Some('.') {
                             self.chars.next();
-                            let end = self.advance_while(|ch| ch.is_digit(10));
+                            let end = self.advance_while(|ch| ch.is_ascii_digit());
                             Ok(Value::Float(OrderedFloat(
                                 self.str[start..end].parse().unwrap(),
                             )))
@@ -67,8 +67,8 @@ impl<'a> Parser<'a> {
             }
             (start, '.') => {
                 self.chars.next();
-                if let Some('0'...'9') = self.peek() {
-                    let end = self.advance_while(|ch| ch.is_digit(10));
+                if let Some('0'..='9') = self.peek() {
+                    let end = self.advance_while(|ch| ch.is_ascii_digit());
                     Ok(Value::Float(OrderedFloat(
                         self.str[start..end].parse().unwrap(),
                     )))
@@ -163,7 +163,8 @@ impl<'a> Parser<'a> {
                                     if let Some(value) = iter.next() {
                                         map.insert(key, value);
                                     } else {
-                                        let end = self.chars
+                                        let end = self
+                                            .chars
                                             .clone()
                                             .next()
                                             .map(|(pos, _)| pos)
@@ -229,15 +230,13 @@ impl<'a> Parser<'a> {
                         let value = self.read();
 
                         match value {
-                            Some(Ok(v)) => return Ok(Value::Tagged(tag.into(), Box::new(v))),
-                            Some(e) => return e,
-                            None => {
-                                return Err(Error {
-                                    lo: start,
-                                    hi: self.str.len(),
-                                    message: "malformed tagged value".into(),
-                                })
-                            }
+                            Some(Ok(v)) => Ok(Value::Tagged(tag.into(), Box::new(v))),
+                            Some(e) => e,
+                            None => Err(Error {
+                                lo: start,
+                                hi: self.str.len(),
+                                message: "malformed tagged value".into(),
+                            }),
                         }
                     }
                     _ => unimplemented!(),
@@ -297,9 +296,8 @@ impl<'a> Parser<'a> {
 }
 
 fn is_symbol_head(ch: char) -> bool {
-    match ch {
-        'a'...'z'
-        | 'A'...'Z'
+    matches!(ch, 'a'..='z'
+        | 'A'..='Z'
         | '.'
         | '*'
         | '+'
@@ -312,14 +310,9 @@ fn is_symbol_head(ch: char) -> bool {
         | '&'
         | '='
         | '<'
-        | '>' => true,
-        _ => false,
-    }
+        | '>')
 }
 
 fn is_symbol_tail(ch: char) -> bool {
-    is_symbol_head(ch) || match ch {
-        '0'...'9' | ':' | '#' | '/' => true,
-        _ => false,
-    }
+    is_symbol_head(ch) || matches!(ch, '0'..='9' | ':' | '#' | '/')
 }

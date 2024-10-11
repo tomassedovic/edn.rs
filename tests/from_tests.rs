@@ -1,7 +1,6 @@
 extern crate edn;
 extern crate ordered_float;
 
-use edn::parser::{Error, Parser};
 use edn::Value;
 use ordered_float::OrderedFloat;
 use std::collections::{BTreeMap, BTreeSet};
