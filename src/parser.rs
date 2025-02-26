@@ -269,7 +269,7 @@ impl<'a> Parser<'a> {
             // Skip whitespace.
             self.advance_while(|ch| ch.is_whitespace() || ch == ',');
             // Skip comment if present.
-            if self.chars.clone().next().map_or(false, |(_, ch)| ch == ';') {
+            if self.chars.clone().next().is_some_and(|(_, ch)| ch == ';') {
                 self.advance_while(|ch| ch != '\n');
                 self.chars.next();
             } else {
